@@ -1,0 +1,95 @@
+﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+using Npgsql;
+using System.Security.Cryptography;
+
+namespace Регистрация_и_аутинтефикация
+{
+    public partial class Form2 : Form
+    {
+        public Form2()
+        {
+            InitializeComponent();
+            textBox2.UseSystemPasswordChar = true;
+        }
+
+        private static string FormHashSHA1(string str)
+        {
+            using (var cp = new SHA1CryptoServiceProvider())
+            {
+                var encode = Encoding.UTF8;
+                return BitConverter.ToString(cp.ComputeHash(encode.GetBytes(str))).Replace("-", "");
+            }
+        }
+
+
+        private void button1_Click(object sender, EventArgs e)
+        {
+            if (string.IsNullOrEmpty(textBox1.Text) || string.IsNullOrEmpty(textBox2.Text))
+            {
+                MessageBox.Show("Пожалуйста, заполните пустые поля.");
+                return;
+            }
+
+
+            NpgsqlConnection plugin = new NpgsqlConnection("Server = localhost; Port = 5432; User ID = postgres; Password = 9378325; DataBase = users");
+            if (plugin == null)
+                MessageBox.Show("Не удалось подключиться к базе данных.");
+            else
+                plugin.Open();
+
+            NpgsqlCommand com = new NpgsqlCommand("select login, password, salt from users where login = @login", plugin);
+            com.Parameters.AddWithValue("@login", textBox1.Text);
+            NpgsqlDataReader data = com.ExecuteReader();
+            string salt;
+            string password;
+
+            if (!data.Read())
+            {
+                MessageBox.Show("Пользователя с таким логином не существует.");
+            }
+            else
+            {
+                salt = (string)data["salt"];
+                password = (string)data["password"];
+
+                if (password != FormHashSHA1(textBox2.Text + salt))
+                {
+                    MessageBox.Show("Неверный пароль.");
+                }
+                else
+                {
+                    MessageBox.Show("Пользователь аутентифицирован.");
+                }
+
+                plugin.Close();
+            }
+        }
+
+        private void checkBox1_CheckedChanged_1(object sender, EventArgs e)
+        {
+            if (checkBox1.Checked)
+            {
+                textBox2.UseSystemPasswordChar = false;
+            }
+            else
+            {
+                textBox2.UseSystemPasswordChar = true;
+            }
+        }
+
+        private void button2_Click(object sender, EventArgs e)
+        {
+            Form open_form2 = new Form1();
+            open_form2.Show(); 
+        }
+
+	}
+}

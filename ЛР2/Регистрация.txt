@@ -1,0 +1,92 @@
+﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+using Npgsql;
+using System.Security.Cryptography;
+
+
+namespace Регистрация_и_аутинтефикация
+{
+    public partial class Form1 : Form
+    {
+        public Form1()
+        {
+            InitializeComponent();
+            textBox2.UseSystemPasswordChar = true;
+            textBox3.UseSystemPasswordChar = true;
+        }
+
+        private void Form1_Load(object sender, EventArgs e)
+        {
+
+        }
+
+
+
+        private static string FormHashSHA1(string str)
+        {
+            using (var cp = new SHA1CryptoServiceProvider())
+            {
+                var encode = Encoding.UTF8;
+                return BitConverter.ToString(cp.ComputeHash(encode.GetBytes(str))).Replace("-", "");
+            }
+        }
+
+
+
+        private void button1_Click(object sender, EventArgs e)
+        {
+            if (string.IsNullOrEmpty(textBox1.Text) || string.IsNullOrEmpty(textBox2.Text) || string.IsNullOrEmpty(textBox3.Text))
+            {
+                MessageBox.Show("Пожалуйста, заполните пустые поля.");
+                return;
+            }
+
+
+            NpgsqlConnection plugin = new NpgsqlConnection("Server=localhost; Port=5432; User ID=postgres; Password=9378325; DataBase=users");
+            if (plugin == null)
+                MessageBox.Show("Не удалось подключиться к базе данных.");
+            else
+                plugin.Open();
+
+            NpgsqlCommand com = new NpgsqlCommand("select count (*) from users where login = @login", plugin);
+            com.Parameters.AddWithValue("@login", textBox1.Text);
+            string salt = Guid.NewGuid().ToString();
+            string password;
+            string date = DateTime.Now.ToString();
+
+            if (Convert.ToInt32(com.ExecuteScalar()) > 0)
+            {
+                MessageBox.Show("Пользователь с таким логином уже существет.");
+            }
+            else
+            {
+                if ((textBox2.Text != textBox3.Text))
+                {
+                    MessageBox.Show("Пароли не совпадают.");
+                }
+                else
+                {
+                    
+                    password = FormHashSHA1(textBox2.Text + salt);
+                    com.CommandText = @"insert into users (login, password, salt, date) values (@login, @password, @salt, @date)";
+                    com.Parameters.AddWithValue("@password", password);
+                    com.Parameters.AddWithValue("@salt", salt);
+                    com.Parameters.AddWithValue("@date", date);
+                    if (com.ExecuteNonQuery() != 1)
+                        MessageBox.Show("Не удалось зарегистрировать нового пользователя.");
+                    else
+                        MessageBox.Show("Регистрация прошла успешно.");
+                }
+
+                plugin.Close();
+            }
+        }
+    }
+}
