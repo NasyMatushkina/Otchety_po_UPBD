@@ -1,0 +1,147 @@
+﻿using System;
+using System.Text;
+using System.Windows.Forms;
+using Npgsql;
+using System.Security.Cryptography;
+
+namespace Регистрация_и_аутинтефикация
+{
+	public partial class Form3 : Form
+	{
+		NpgsqlConnection plugin = new NpgsqlConnection("Server=localhost; Port=5432; User ID=postgres; Password=9378325; DataBase=users");
+
+
+		public Form3()
+		{
+			InitializeComponent();
+		}
+
+		private void Form3_Load(object sender, EventArgs e)
+		{
+
+			if (plugin == null)
+				MessageBox.Show("Не удалось подключиться к базе данных.");
+			else
+				plugin.Open();
+			NpgsqlCommand com = new NpgsqlCommand("select login, date from users", plugin);
+			var data = com.ExecuteReader();
+			while (data.Read())
+			{
+				ListViewItem lvi = new ListViewItem(new[]
+					{
+						(string) data["login"],
+						(string) data ["date"]
+					}
+			  );
+				listView1.Items.Add(lvi);
+			}
+
+			plugin.Close();
+		}
+
+		private void button1_Click(object sender, EventArgs e)
+		{
+			InsertUpdate insertUpdate = new InsertUpdate(true);
+			if (insertUpdate.ShowDialog() == DialogResult.OK)
+			{
+				plugin.Open();
+				NpgsqlCommand com = new NpgsqlCommand("select count (*) from users where login = @login", plugin);
+				com.Parameters.AddWithValue("@login", insertUpdate.login);
+				if (Convert.ToInt32(com.ExecuteScalar()) > 0)
+				{
+					MessageBox.Show("Пользователь с таким логином уже существет.");
+				}
+				else
+				{
+					if ((insertUpdate.password != insertUpdate.repeat_pass))
+					{
+						MessageBox.Show("Пароли не совпадают.");
+					}
+					else
+					{
+						string salt = Guid.NewGuid().ToString();
+						string password = FormHashSHA1(insertUpdate.password + salt);
+						string date = DateTime.Now.ToString();
+						com = new NpgsqlCommand("insert into users (login, password, salt, date) values (@login, @password, @salt, @date)", plugin);
+						com.Parameters.AddWithValue("@login", insertUpdate.login);
+						com.Parameters.AddWithValue("@password", password);
+						com.Parameters.AddWithValue("@salt", salt);
+						com.Parameters.AddWithValue("@date", date);
+
+						if (com.ExecuteNonQuery() != 1)
+							MessageBox.Show("Не удалось зарегистрировать нового пользователя.");
+						else
+						{
+							MessageBox.Show("Регистрация прошла успешно.");
+							ListViewItem lvi = new ListViewItem(new[] { insertUpdate.login, date });
+							listView1.Items.Add(lvi);
+						}
+					}
+				}
+
+				plugin.Close();
+			}
+		}
+
+		private void button3_Click(object sender, EventArgs e)
+		{
+			plugin.Open();
+			var com = new NpgsqlCommand(@"delete from users where login=@login", plugin);
+			string login = listView1.FocusedItem.Text;
+			com.Parameters.AddWithValue("@login", login);
+			com.ExecuteNonQuery();
+			listView1.FocusedItem.Remove();
+			plugin.Close();
+		}
+
+		private void button2_Click(object sender, EventArgs e)
+		{
+			InsertUpdate insertUpdate = new InsertUpdate(false);
+			string oldlog = listView1.FocusedItem.Text;
+			insertUpdate.login = oldlog;
+			string oldpass = listView1.FocusedItem.SubItems[1].Text;
+			if (insertUpdate.ShowDialog() == DialogResult.OK)
+			{
+				plugin.Open();
+				string newlog = insertUpdate.login;
+				string salt = Guid.NewGuid().ToString();
+				string password = FormHashSHA1(insertUpdate.repeat_pass + salt);
+				if (insertUpdate.password != insertUpdate.repeat_pass)
+				{
+					MessageBox.Show("Пароли не совпадают.");
+				}
+				else
+				{
+					var com = new NpgsqlCommand("update users set login=@newlog, password=@password, salt=@salt where login=@oldlog", plugin);
+					com.Parameters.AddWithValue("@newlog", newlog);
+					com.Parameters.AddWithValue("@password", password);
+					com.Parameters.AddWithValue("@salt", salt);
+					com.Parameters.AddWithValue("@oldlog", oldlog);
+
+					if (com.ExecuteNonQuery() != 1)
+						MessageBox.Show("Не удалось изменить данные.");
+					else
+					{
+						ListViewItem lvi = new ListViewItem(new[] { newlog, listView1.FocusedItem.SubItems[1].Text });
+						listView1.FocusedItem.Remove();
+						listView1.Items.Add(lvi);
+						MessageBox.Show("Данные успешно изменены");
+					}
+				}
+			}
+
+			plugin.Close();
+		}
+	
+
+
+		private static string FormHashSHA1(string str)
+		{
+			using (var cp = new SHA1CryptoServiceProvider())
+			{
+				var encode = Encoding.UTF8;
+				return BitConverter.ToString(cp.ComputeHash(encode.GetBytes(str))).Replace("-", "");
+			}
+		}
+	}
+}

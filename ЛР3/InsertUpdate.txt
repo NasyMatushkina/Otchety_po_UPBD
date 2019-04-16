@@ -1,0 +1,27 @@
+﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+
+namespace Регистрация_и_аутинтефикация
+{
+    public partial class InsertUpdate : Form
+    {
+        public string login { get { return textBox1.Text;} set { textBox1.Text = value; } }
+        public string password { get { return textBox2.Text;} set { textBox2.Text = value; } }
+		public string repeat_pass { get { return textBox3.Text; } set { textBox3.Text = value; } }
+        public InsertUpdate(bool type)
+        {
+            InitializeComponent();
+            button1.Text = type ?  "Добавить" : "Изменить";
+			label2.Text = type ? "Пароль" : "Новый пароль";
+			label3.Text = type ? "Подтвердить пароль" : "Подтвердить пароль";
+		}
+
+	}
+}
