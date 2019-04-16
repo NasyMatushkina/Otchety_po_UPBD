@@ -1,0 +1,59 @@
+﻿using System;
+using System.Windows.Forms;
+using System.Data.SQLite;
+
+namespace БД
+{
+    public partial class Form1 : Form
+    {
+        public Form1()
+        {
+            InitializeComponent();
+        }
+        private void FacultieData(long uid, TreeNode tree, SQLiteConnection plugin2)
+        {
+            SQLiteCommand com2 = new SQLiteCommand("Select * From faculties where faculties.univerID=" + uid, plugin2);
+            SQLiteDataReader data2 = com2.ExecuteReader();
+            while (data2.Read())
+            {
+                TreeNode tree2 = new TreeNode((string)data2["fname"]);
+                tree.Nodes.Add(tree2);
+                StudentsData((long)data2["fid"], tree2, plugin2);
+            }
+        }
+
+        private void StudentsData(long uid, TreeNode tree, SQLiteConnection plugin3)
+        {
+            SQLiteCommand com3 = new SQLiteCommand("Select * From students where students.ID_facultie=" + uid, plugin3);
+            SQLiteDataReader data3 = com3.ExecuteReader();
+            while (data3.Read())
+            {
+                TreeNode tree3 = new TreeNode((string)data3["sfam"]);
+                tree.Nodes.Add(tree3);
+            }
+        }
+
+        private void Form1_Load(object sender, EventArgs e)
+        {
+            using (SQLiteConnection plugin = new SQLiteConnection(@"DataSource=C:/Users/Admin-PC/Documents/university.db"))
+            {
+                plugin.Open();
+                SQLiteCommand com = new SQLiteCommand("Select * From university", plugin);
+                SQLiteDataReader data = com.ExecuteReader();
+
+                while (data.Read())
+                {
+                    TreeNode tree = new TreeNode((string)data["uname"]);
+                    treeView1.Nodes.Add(tree);
+                    FacultieData((long)data["uid"], tree, plugin);
+                }
+                
+                plugin.Close();
+            }
+               
+        }
+
+    }
+
+
+}
